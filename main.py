@@ -13,9 +13,10 @@ class Perceptron:
 
 
 class Event:
-    def __init__(self, inputs, output):
-        self.inputs = inputs  # Inputs
-        self.output = output  # Expected output given inputs
+    def __init__(self, inputs, output, should_backpropagate):
+        self.inputs = inputs  # Inputs (array de pixeles)
+        self.output = output  # Expected output given inputs (0 o 1)
+        self.should_backpropagate = should_backpropagate
 
 
 def image_work():
@@ -33,6 +34,14 @@ def image_work():
     # Diego --> 0
     # Franco --> 1
 
+    # Witness images, do not backpropagate
+    gestureA6 = image_analizer.get_grayscale_array(image_name="../ia-tp5/6A4353.jpg", width=80, height=96)
+    gestureB6 = image_analizer.get_grayscale_array(image_name="../ia-tp5/6B4698.jpg", width=80, height=96)
+    gestureA7 = image_analizer.get_grayscale_array(image_name="../ia-tp5/7A4353.jpg", width=80, height=96)
+    gestureB7 = image_analizer.get_grayscale_array(image_name="../ia-tp5/7B4698.jpg", width=80, height=96)
+    gestureA8 = image_analizer.get_grayscale_array(image_name="../ia-tp5/8A4353.jpg", width=80, height=96)
+    gestureB8 = image_analizer.get_grayscale_array(image_name="../ia-tp5/8B4698.jpg", width=80, height=96)
+
     # Add bias
     gestureA1.insert(0, 1)
     gestureB1.insert(0, 1)
@@ -44,19 +53,31 @@ def image_work():
     gestureB4.insert(0, 1)
     gestureA5.insert(0, 1)
     gestureB5.insert(0, 1)
+    gestureA6.insert(0, 1)
+    gestureB6.insert(0, 1)
+    gestureA7.insert(0, 1)
+    gestureB7.insert(0, 1)
+    gestureA8.insert(0, 1)
+    gestureB8.insert(0, 1)
 
     # Ceate matrix
     events = [
-        Event(gestureA1, 0),
-        Event(gestureB1, 1),
-        Event(gestureA2, 0),
-        Event(gestureB2, 1),
-        Event(gestureA3, 0),
-        Event(gestureB3, 1),
-        Event(gestureA4, 0),
-        Event(gestureB4, 1),
-        Event(gestureA5, 0),
-        Event(gestureB5, 1)
+        Event(gestureA1, 0, should_backpropagate=True),
+        Event(gestureB1, 1, should_backpropagate=True),
+        Event(gestureA2, 0, should_backpropagate=True),
+        Event(gestureB2, 1, should_backpropagate=True),
+        Event(gestureA3, 0, should_backpropagate=True),
+        Event(gestureB3, 1, should_backpropagate=True),
+        Event(gestureA4, 0, should_backpropagate=True),
+        Event(gestureB4, 1, should_backpropagate=True),
+        Event(gestureA5, 0, should_backpropagate=True),
+        Event(gestureB5, 1, should_backpropagate=True),
+        Event(gestureA6, 0, should_backpropagate=False),
+        Event(gestureB6, 1, should_backpropagate=False),
+        Event(gestureA7, 0, should_backpropagate=False),
+        Event(gestureB7, 1, should_backpropagate=False),
+        Event(gestureA8, 0, should_backpropagate=False),
+        Event(gestureB8, 1, should_backpropagate=False),
     ]
 
     # Configurations
@@ -71,8 +92,15 @@ def image_work():
 
 def multilayer_perceptron_work(events: Event, max_iterations, learning_rate, number_of_hidden_layers):
     error_array = []
-    for i in range(len(events)):
-        error_array.append([])
+    witness_real_output_array = []
+    for event_index, event in enumerate(events):
+        if not event.should_backpropagate:
+            witness_real_output_array.append({
+                "name": event_index,
+                "value": []
+            })
+        else:
+            error_array.append([])
 
     # Add hidden layers
     hidden_layer = []
@@ -93,8 +121,9 @@ def multilayer_perceptron_work(events: Event, max_iterations, learning_rate, num
         number_of_iterations += 1
         if number_of_iterations == max_iterations:
             # Validamos las personas
-            validate_results(hidden_layer=hidden_layer, output_layer= output_layer)
+            # validate_results(hidden_layer=hidden_layer, output_layer= output_layer)
             # show_plot(data=error_array, title='Imagenes TP6', x_label='Iteraciones', y_label='Errores', label='error ')
+            show_witness_plot(data=witness_real_output_array, title='Witness images', x_label='Iteraciones', y_label='Salida real', label='salida ')
             break
 
         print("\nIteracion ", number_of_iterations)
@@ -115,14 +144,16 @@ def multilayer_perceptron_work(events: Event, max_iterations, learning_rate, num
                 output_layer_inputs.append(p.real_output)
 
             calculate_output(perceptron=output_layer, inputs_row=output_layer_inputs)
-            # print("| Bias | Input 1 | Input 2 | Desired Output | Real output |")
-            # print("  ", single_row.inputs[0], "        ", single_row.inputs[1], "       ", single_row.inputs[2],
-            #       "         ", desired_output, "      ", output_layer.real_output)
+
+            if not single_row.should_backpropagate:
+                print("Witness image, skipping backpropagation")
+                witness_element = [x for x in witness_real_output_array if x["name"]==single_row_index]
+                witness_element[0]["value"].append(output_layer.real_output)
+                continue
 
             # Modify weights on output layer
             error = calculate_error(desired_output, output_layer.real_output)
             error_array[single_row_index].append(error)
-            # print("Final real error ", error)
 
             delta_final = calculate_delta(output_layer.real_output, error)
             for index, single_input in enumerate(output_layer_inputs):
@@ -171,6 +202,21 @@ def calculate_delta(real_output=None, error=None):
 
 def calculate_delta_weight(learning_rate=None, input=None, delta_final=None):
     return learning_rate * input * delta_final
+
+
+def show_witness_plot(data=None, title=None, x_label=None, y_label=None, label=None):
+    values = np.arange(0, len(data[0]["value"]))
+
+    plt.title(title)
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
+
+    for i, element in enumerate(data):
+        plot_label = element["name"]
+        plt.plot(values, element["value"], label=plot_label)
+
+    plt.legend(bbox_to_anchor=(1.1, 1.05))
+    plt.show()
 
 
 def show_plot(data=None, title=None, x_label=None, y_label=None, label=None):
